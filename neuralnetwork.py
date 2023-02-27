@@ -1,11 +1,11 @@
 import numpy as np
 
 class NeuralNetwork:
-    def __init__(self, n_hidden, hl_size, batch_size, weight_init, activation, lr, n_input, n_output = 10):
+    def __init__(self, n_hidden, hl_size, batch_size, weight_init, activation_fn, lr, n_input, n_output = 10):
         self.n_hidden = n_hidden #number of hidden layers
         self.hl_size = hl_size #size of each hidden layer
         self.batch_size = batch_size 
-        self.activation = activation 
+        self.activation_fn = activation_fn
         self.lr = lr
         self.weight_init = weight_init
         self.n_input = n_input
@@ -43,11 +43,41 @@ class NeuralNetwork:
             print('Choose correct initialization.')
             quit()
     
+    def activation(self, x, grad = False):
+        if self.activation_fn == 'sigmoid':
+            if grad == False:
+                return 1/(1+ np.exp(-x))
+            else:
+                return np.exp(-x)/((1 + np.exp(-x))**2)
+
+        elif self.activation_fn == 'tanh':
+            if grad == False:
+                return np.tanh(x)
+            else:
+                1 - np.multiply(np.tanh(x), np.tanh(x))
+        else:
+            if grad == False:
+                return x*(x > 0)
+            else:
+                return 1*(x >= 0)
+
+    def softmax(output):
+        return [np.exp(x)/sum(np.exp(x)) for x in output]
+    
     def feedforward(self, image):
         output = image.flatten()
 
-        for weight_array in self.weights_list:
+        for i in range(0, 2 + self.n_hidden):
+            weight_array = self.weights_list[i]
             output.append(1)
+            output = np.matmul(np.transpose(weight_array), output)
+            if i!= len(self.weights_list[i]) - 1:
+                output = self.activation(output)
+            else:
+                output = self.softmax(output)
+    
+        
+            
 
 
 
