@@ -1,9 +1,9 @@
 import numpy as np
-
+from sklearn.metrics import accuracy_score
 import cv2
 
 class NeuralNetwork:
-    def __init__(self, n_hidden = 3, hl_size = 5, batch_size = 1, weight_init = 'Xavier', activation_fn = 'sigmoid', optimizer = 'sgd', lr = 0.1, n_input = 28*28, n_output = 10):
+    def __init__(self, n_hidden = 3, hl_size = 32, batch_size = 16, weight_init = 'Xavier', activation_fn = 'sigmoid', optimizer = 'sgd', lr = 0.01, n_input = 28*28, n_output = 10):
         self.n_hidden = n_hidden #number of hidden layers
         self.hl_size = hl_size #size of each hidden layer
         self.batch_size = batch_size 
@@ -143,6 +143,20 @@ class NeuralNetwork:
             self.reset_updates()
         
         return self.loss_fn(predicted, label)
+    
+    def inference(self, x_test, y_test):
+        predictions = []
+        loss = 0
+        for (x,y) in zip(x_test,y_test):
+            pred = self.feedforward(x)
+            loss = loss + self.loss_fn(pred, y_test)
+            predicted_label = np.argmax(pred)
+            predictions.append(predicted_label)
+        
+        y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
+        
+        return loss, accuracy_score(y_label, predictions)
+
 
 
 
