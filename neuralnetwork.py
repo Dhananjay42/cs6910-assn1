@@ -75,6 +75,9 @@ class NeuralNetwork:
             return 1
         else:
             return 1*(x > 0)
+    
+    def loss_fn(self, predicted, label):
+        return np.sum(-label*np.log(predicted))
 
     def softmax(self, output):
         out = [np.exp(x) for x in output]
@@ -102,6 +105,7 @@ class NeuralNetwork:
         for i in range(0, len(self.weights_list)):
             arr = np.zeros(np.shape(self.weights_list[i]))
             self.updates.append(arr)
+
     
     def update(self):
         if len(self.gradients) == 0:
@@ -137,6 +141,8 @@ class NeuralNetwork:
         if self.batch_count%self.batch_size==0:
             self.optimize()
             self.reset_updates()
+        
+        return self.loss_fn(predicted, label)
 
 
 
