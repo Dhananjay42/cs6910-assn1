@@ -6,30 +6,32 @@ from keras.datasets import fashion_mnist
 from keras.utils import to_categorical
 
 network = NeuralNetwork()
-n_epochs = 10
+n_epochs = 5    
 
-def epoch(network, x_train, y_train):
-    loss = 0
-    for (x, y) in zip(x_train, y_train):
-        loss = loss + network.step(x, y)
-    network.optimize()
-    network.reset_updates()
-    return loss
 
 (trainX, trainy), (testX, testy) = fashion_mnist.load_data()
+
+trainX = trainX/255
+testX = testX/255
+
+trainX = trainX
+trainy = trainy
+
+#Add code to flatten images
+x_train = []
+x_test = []
+for i in range(0, len(trainX)):
+  x_train.append(trainX[i,:,:].flatten())
+for i in range(0, len(testX)):
+  x_test.append(testX[i,:,:].flatten())
+
+
 trainy_encoded = to_categorical(trainy)
 testy_encoded = to_categorical(testy)
-trainX = trainX[:100]
-trainy_encoded = trainy_encoded[:100]
+#trainX = trainX
+#trainy_encoded = trainy_encoded[:100]
 losses = []
 print('Training process started.')
 for i in range(0, n_epochs):
-    loss = epoch(network, trainX, trainy_encoded)
-    test_loss, test_acc = network.inference(testX, testy_encoded)
-    train_loss, train_acc = network.inference(trainX, trainy_encoded)
-    print(f'Epoch {i+1} completed. The train loss is {loss} and train acc is {train_acc}. The test loss is {test_loss}, and the test accuracy is {test_acc}.')
+    loss = network.epoch(x_train, trainy_encoded, x_test, testy_encoded, i)
     losses.append(loss)
-
-plt.plot(losses)
-plt.show()
-

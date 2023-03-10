@@ -1,9 +1,11 @@
 import numpy as np
 from sklearn.metrics import accuracy_score
 import cv2
+import copy 
 
 class NeuralNetwork:
-    def __init__(self, n_hidden = 3, hl_size = 32, batch_size = 16, weight_init = 'Xavier', activation_fn = 'sigmoid', optimizer = 'sgd', lr = 0.01, n_input = 28*28, n_output = 10):
+    def __init__(self, n_hidden = 3, hl_size = 128, batch_size = 16, weight_init = 'Xavier', activation_fn = 'ReLU', \
+                 optimizer = 'sgd', lr = 0.0001, n_input = 28*28, n_output = 10, loss_type = 'cross_entropy', lamda = 0.0005):
         self.n_hidden = n_hidden #number of hidden layers
         self.hl_size = hl_size #size of each hidden layer
         self.batch_size = batch_size 
@@ -13,160 +15,210 @@ class NeuralNetwork:
         self.n_input = n_input
         self.n_output = n_output
         self.optimizer = optimizer
-        self.weights_list = []
-        self.updates = []
-        self.gradients = []
-        self.activated_layers = []
-        self.batch_count = 0
+        self.loss_type = loss_type
+        self.lamda = lamda
+
+        self.weights = []
+        self.biases = []
+        
+        self.a_list = []
+        self.h_list = []
+        self.weight_gradients = []
+        self.bias_gradients = []
+        self.weight_updates = []
+        self.bias_updates = []
+        self.loss = 0
+
+        self.layer_sizes = [n_input]
+        for i in range(n_hidden):
+          self.layer_sizes.append(hl_size)
+        self.layer_sizes.append(n_output)
+
+        # self.updates = []
+        
+        # self.activated_layers = []
+        # self.batch_count = 0
         self.init_weights()
 
     def init_weights(self):
         if self.weight_init == 'Xavier':
-            a = np.sqrt(6/(self.n_input + self.hl_size))
-            arr = np.random.uniform(low = -a, high = a, size = (self.n_input + 1, self.hl_size))
-            self.weights_list.append(arr)
-            self.updates.append(np.zeros(np.shape(arr)))
-
-            for i in range(self.n_hidden - 1):
-                a = np.sqrt(3/self.hl_size)
-                arr = np.random.uniform(low = -a, high = a, size = (self.hl_size+1, self.hl_size))
-                self.weights_list.append(arr)
-                self.updates.append(np.zeros(np.shape(arr)))
-            
-            a = np.sqrt(6/(self.hl_size + self.n_output))
-            arr = np.random.uniform(low = -a, high = a, size = (self.hl_size+1, self.n_output))
-            self.weights_list.append(arr)
-            self.updates.append(np.zeros(np.shape(arr)))
+          for i in range(0,len(self.layer_sizes)-1):
+            a = np.sqrt(6/(self.layer_sizes[i] + self.layer_sizes[i+1]))
+            w_arr = np.random.uniform(low = -a, high = a, size = (self.layer_sizes[i], self.layer_sizes[i+1]))
+            self.weights.append(w_arr)
+            b_arr = np.zeros((self.layer_sizes[i+1], 1))
+            self.biases.append(b_arr)
         
         elif self.weight_init == 'random':
-            arr = np.random.randn(self.n_input + 1, self.hl_size)
-            self.weights_list.append(arr)
-            self.updates.append(np.zeros(np.shape(arr)))
-
-            for i in range(self.n_hidden - 1):
-                arr = np.random.randn(self.hl_size+1, self.hl_size)
-                self.weights_list.append(arr)
-                self.updates.append(np.zeros(np.shape(arr)))
-            
-            arr = np.random.randn(self.hl_size+1, self.n_output)
-            self.weights_list.append(arr)
-            self.updates.append(np.zeros(np.shape(arr)))
+          for i in range(0,len(self.layer_sizes)-1):
+            w_arr = np.random.randn(self.layer_sizes[i], self.layer_sizes[i+1])
+            self.weights.append(w_arr)
+            b_arr = np.random.randn(self.layer_sizes[i+1], 1)
+            self.biases.append(b_arr)
 
         else:
             print('Choose correct initialization.')
             quit()
     
-    def activation(self, x):
+    def activation(self, a):
         if self.activation_fn == 'sigmoid':
-            return np.array([1/(1+ np.exp(-a)) for a in x])
+          return (1.0/(1.0+np.exp(-a)))
         elif self.activation_fn == 'tanh':
-            return [np.tanh(a) for a in x]
+          return np.tanh(a)
         elif self.activation_fn == 'identity':
-            return x
+          return a
         else:
-            return x*(x > 0)
+          return np.maximum(0,a)
     
-    def calculate_grad(self, x):
+    def calculate_grad(self, a):
         if self.activation_fn == 'sigmoid':
-            return [a*(1-a) for a in x]
+            return self.activation(a)*(1-self.activation(a))
         elif self.activation_fn == 'tanh':
-            return [1-a**2 for a in x]
+            return 1.0 - self.activation(a)**2
         elif self.activation_fn == 'identity':
             return 1
         else:
-            return 1*(x > 0)
+            return 1*(a > 0)
     
-    def loss_fn(self, predicted, label):
-        return np.sum(-label*np.log(predicted))
+    def softmax_grad(self, a):
+      return self.softmax(a)*(1-self.softmax(a))
+    
+    def loss_fn(self, predicted, labels):
+      error = 0
+      if self.loss_type == 'cross_entropy':
+        #labels are one-hot encoded.
+        error = error - np.sum( np.multiply(labels , np.log(predicted)))/len(labels)
+      else:
+        #labels are not one-hot encoded.
+        error = error + np.sum(((predicted - labels)**2) / (2 * len(labels)))
+      
+      for i in range(0, len(self.weights)):
+        reg_error = np.sum(self.weights[i]*self.weights[i])
+        error = error + (self.lamda/(2*len(labels)))*reg_error
+      
+      return error
 
     def softmax(self, output):
         out = [np.exp(x) for x in output]
         out = out/np.sum((out))
         return out
-    
-    def feedforward(self, image):
+      
+    def feedforward(self, x):
         self.activated_layers = []
-        output = image.flatten()
-        self.activated_layers.append(output)
+        output = copy.deepcopy(x)
+        
+        self.a_list = [output]
+        self.h_list = [output]
 
         for i in range(0, self.n_hidden):
-            output = np.append(output, 1)
-            output = np.transpose(self.weights_list[i])@output
+            output = np.transpose(self.weights[i])@output.reshape(-1,1) + self.biases[i]
+            self.a_list.append(output)
             output = self.activation(output)
-            self.activated_layers.append(output)
+            self.h_list.append(output)
         
-        output = np.append(output, 1)
-        output = np.transpose(self.weights_list[-1])@output
+        output = np.transpose(self.weights[-1])@output + self.biases[-1]
         output = self.softmax(output)
         return output
     
-    def reset_updates(self):
-        self.updates = []
-        for i in range(0, len(self.weights_list)):
-            arr = np.zeros(np.shape(self.weights_list[i]))
-            self.updates.append(arr)
-
-    
-    def update(self):
-        if len(self.gradients) == 0:
-            print('Error in backprop.')
-            exit()
-        else:
-            for i in range(0, len(self.updates)):
-                self.updates[i] = self.updates[i] + self.gradients[i]
-
     def backprop(self, y_pred, y_true):
-        out_err = y_pred - y_true #n_out x 1
-        self.gradients = []
+        self.weight_gradients = []
+        self.bias_gradients = []
+
+        grad_a = y_pred - y_true.reshape(-1, 1) #y_pred and y_true are one-hot encoded when its cross-entropy and just scalars when its MSE. The expression does not change.
+        #dimensions: (n_out x 1)
         for i in range(1,self.n_hidden + 2):
-            weight_update = np.outer(self.activated_layers[-i],out_err) #weight update
-            bias_update = out_err #bias update
-            update = np.vstack([weight_update, bias_update])
-            self.gradients.append(update)
-            del_prev = self.weights_list[-i][:-1,:]@out_err
-            grad_prev = self.calculate_grad(self.activated_layers[-i])
-            out_err = np.multiply(del_prev, grad_prev)
-        self.gradients.reverse()
-        self.update()
+          grad_w = np.dot(self.h_list[-i].reshape(-1,1), np.transpose(grad_a))
+          grad_b = copy.deepcopy(grad_a)
+          self.weight_gradients.append(grad_w)
+          self.bias_gradients.append(grad_b)
+          grad_h_prev = np.dot(self.weights[-i], grad_a)
+          derivative = self.calculate_grad(self.a_list[-i])
+          grad_a = np.multiply(grad_h_prev, derivative)
+
+        self.weight_gradients.reverse()
+        self.bias_gradients.reverse()
     
-    def optimize(self):
-        if self.optimizer=='sgd':
-            for i in range(0,len(self.weights_list)):
-                self.weights_list[i] = self.weights_list[i] - self.lr*self.updates[i]
-    
-    def step(self, image, label):
-        predicted = self.feedforward(image)
-        self.backprop(predicted, label)
-        self.batch_count = self.batch_count + 1
-        if self.batch_count%self.batch_size==0:
-            self.optimize()
-            self.reset_updates()
-        
-        return self.loss_fn(predicted, label)
+    def batchwise_gradient(self, X, y):
+      self.weight_updates = []
+      self.bias_updates = []
+      for i in range(0, len(X)):
+        y_pred = self.feedforward(X[i])
+        self.backprop(y_pred, y[i])
+        self.loss = self.loss + self.loss_fn(y_pred, y[i].reshape(-1, 1))
+        if i==0:
+          self.weight_updates = copy.deepcopy(self.weight_gradients)
+          self.bias_updates = copy.deepcopy(self.bias_gradients)
+        else:
+          for i in range(0, len(self.weight_gradients)):
+            self.weight_updates[i] = self.weight_updates[i] + self.weight_gradients[i]
+            self.bias_updates[i] = self.bias_updates[i] + self.bias_gradients[i]
+      
+    def step(self, X, y):
+      self.batchwise_gradient(X, y)
+      reg_factor = (1 - ((self.lr*self.lamda)/self.batch_size))
+      if self.optimizer == 'sgd':
+        for i in range(0, len(self.weights)):
+          self.weights[i] = reg_factor*self.weights[i] - self.lr*self.weight_updates[i]
+          self.biases[i] = self.biases[i] - self.lr*self.bias_updates[i]
+      
+      elif self.optimizer == 'momentum':
+        pass
+      
+      elif self.optimizer == 'nesterov':
+        pass
+      
+      elif self.optimizer == 'rmsprop':
+        pass
+      
+      elif self.optimizer == 'adam':
+        pass
+      
+      elif self.optimizer == 'nadam':
+        pass
+      
+      else:
+        print('Error in optimizer name.')
+      
+    def reset(self):
+      self.loss = 0
     
     def inference(self, x_test, y_test):
-        predictions = []
-        loss = 0
-        for (x,y) in zip(x_test,y_test):
-            pred = self.feedforward(x)
-            loss = loss + self.loss_fn(pred, y_test)
-            predicted_label = np.argmax(pred)
-            predictions.append(predicted_label)
-        
+      predictions = []
+      loss = 0
+      y_label = copy.deepcopy(y_test)
+
+      for (x,y) in zip(x_test,y_test):
+        pred = self.feedforward(x)
+        loss = loss + self.loss_fn(pred, y)
+        predictions.append(pred)
+      
+      if self.loss_type == 'cross_entropy':
+        y_pred = [np.argmax(predictions[i]) for i in range(0,len(predictions))]
         y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
+      
+      else:
+        y_pred = np.round(y_pred)
+        y_pred[y_pred<0] = 0
+        y_pred[y_pred>=self.n_output-1] = self.n_output - 1
+      
+      acc = accuracy_score(y_label, y_pred)
         
-        return loss, accuracy_score(y_label, predictions)
-
-
-
-
+      return loss, acc
     
+    def epoch(self, x_train, y_train, x_test, y_test, index):
+      for i in range(0,len(x_train),self.batch_size):
+        if i+self.batch_size < len(x_train):
+          xbatch = x_train[i:i+self.batch_size]
+          ybatch = y_train[i:i+self.batch_size]
+        else:
+          xbatch = x_train[i:]
+          ybatch = y_train[i:]
 
-
-
-
+        self.step(xbatch, ybatch)
         
-            
-
-
-
+  
+      test_loss, test_acc = self.inference(x_test, y_test)
+      loss_ret = self.loss
+      print(f'Epoch {index+1} completed. Training Loss is {self.loss}. The test loss is {test_loss} and the test accuracy is {test_acc}.')
+      self.reset()
+      return loss_ret
