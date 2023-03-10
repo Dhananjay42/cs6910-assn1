@@ -5,7 +5,8 @@ import copy
 
 class NeuralNetwork:
     def __init__(self, n_hidden = 3, hl_size = 128, batch_size = 16, weight_init = 'Xavier', activation_fn = 'ReLU', \
-                 optimizer = 'sgd', lr = 0.0001, n_input = 28*28, n_output = 10, loss_type = 'cross_entropy', lamda = 0.0005):
+                 optimizer = 'sgd', lr = 0.001, n_input = 28*28, n_output = 10, loss_type = 'cross_entropy', lamda = 0.0005, \
+                 m_factor = 0.5, beta = 0.5, epsilon = 0.000001, beta1 = 0.5, beta2 = 0.5):
         self.n_hidden = n_hidden #number of hidden layers
         self.hl_size = hl_size #size of each hidden layer
         self.batch_size = batch_size 
@@ -17,6 +18,11 @@ class NeuralNetwork:
         self.optimizer = optimizer
         self.loss_type = loss_type
         self.lamda = lamda
+        self.m_factor = m_factor
+        self.beta = beta
+        self.epsilon = epsilon
+        self.beta1 = beta1
+        self.beta2 = beta2
 
         self.weights = []
         self.biases = []
@@ -28,6 +34,11 @@ class NeuralNetwork:
         self.weight_updates = []
         self.bias_updates = []
         self.loss = 0
+
+        self.weight_history = []
+        self.bias_history = []
+        self.rmsprop_weight = []
+        self.rmsprop_bias = []
 
         self.layer_sizes = [n_input]
         for i in range(n_hidden):
@@ -144,7 +155,7 @@ class NeuralNetwork:
       for i in range(0, len(X)):
         y_pred = self.feedforward(X[i])
         self.backprop(y_pred, y[i])
-        self.loss = self.loss + self.loss_fn(y_pred, y[i].reshape(-1, 1))
+        #self.loss = self.loss + self.loss_fn(y_pred, y[i].reshape(-1, 1))
         if i==0:
           self.weight_updates = copy.deepcopy(self.weight_gradients)
           self.bias_updates = copy.deepcopy(self.bias_gradients)
@@ -162,13 +173,55 @@ class NeuralNetwork:
           self.biases[i] = self.biases[i] - self.lr*self.bias_updates[i]
       
       elif self.optimizer == 'momentum':
-        pass
-      
+        if len(self.weight_history) == 0:
+          self.weight_history = copy.deepcopy(self.weight_updates)
+          self.bias_history = copy.deepcopy(self.bias_updates)
+        else:
+          for i in range(0, len(self.weight_history)):
+            self.weight_history[i] = self.m_factor*self.weight_history[i] + self.weight_updates[i]
+            self.bias_history[i] = self.m_factor*self.bias_history[i] + self.bias_updates[i]
+        
+        for i in range(0, len(self.weights)):
+          self.weights[i] = reg_factor*self.weights[i] - self.lr*self.weight_history[i]
+          self.biases[i] = self.biases[i] - self.lr*self.bias_history[i]
+
       elif self.optimizer == 'nesterov':
-        pass
+        temp_weights = copy.deepcopy(self.weights)
+        temp_biases = copy.deepcopy(self.biases)
+        
+        if len(self.weight_history) == 0:
+          self.weight_history = [self.lr*weight for weight in self.weight_updates]
+          self.bias_history = [self.lr*bias for bias in self.bias_updates]
+        else:
+          for i in range(0, len(self.weight_history)):
+            self.weights[i] = self.weights[i] - self.m_factor*self.weight_history[i]
+            self.biases[i] = self.biases[i] - self.m_factor*self.bias_history[i]
+
+          self.batchwise_gradient(X, y)
+
+          for i in range(0, len(self.weight_history)):
+            self.weight_history[i] = self.m_factor*self.weight_history[i] + self.lr*self.weight_updates[i]
+            self.bias_history[i] = self.m_factor*self.bias_history[i] + self.lr*self.bias_updates[i]
+        
+          self.weights = copy.deepcopy(temp_weights)
+          self.biases = copy.deepcopy(temp_biases)
+        
+        for i in range(0, len(self.weights)):
+          self.weights[i] = reg_factor*self.weights[i] - self.weight_history[i]
+          self.biases[i] = self.biases[i] - self.bias_history[i]
       
       elif self.optimizer == 'rmsprop':
-        pass
+        if len(self.rmsprop_weight) == 0:
+          self.rmsprop_weight = [grad**2 for grad in self.weight_updates]
+          self.rmsprop_bias = [grad**2 for grad in self.bias_updates]
+        else:
+          for i in range(0, len(self.rmsprop_weight)):
+            self.rmsprop_weight[i] = self.beta*self.rmsprop_weight[i] + (1-self.beta)*self.weight_updates[i]**2
+            self.rmsprop_bias[i] = self.beta*self.rmsprop_bias[i] + (1-self.beta)*self.bias_updates[i]**2
+        
+        for i in range(0, len(self.weights)):
+          self.weights[i] = self.weights[i] - self.lr*(self.weight_updates[i]/(np.sqrt(self.rmsprop_weight[i] + self.epsilon)))
+          self.biases[i] = self.biases[i] - self.lr*(self.bias_updates[i]/(np.sqrt(self.rmsprop_bias[i] + self.epsilon)))
       
       elif self.optimizer == 'adam':
         pass
@@ -181,6 +234,11 @@ class NeuralNetwork:
       
     def reset(self):
       self.loss = 0
+      self.weight_history = []
+      self.bias_history = []
+      self.rmsprop_weight = []
+      self.rmsprop_bias = []
+
     
     def inference(self, x_test, y_test):
       predictions = []
