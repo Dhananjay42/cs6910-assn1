@@ -6,7 +6,7 @@ import copy
 class NeuralNetwork:
     def __init__(self, n_hidden = 3, hl_size = 128, batch_size = 16, weight_init = 'Xavier', activation_fn = 'ReLU', \
                  optimizer = 'sgd', lr = 0.001, n_input = 28*28, n_output = 10, loss_type = 'cross_entropy', lamda = 0.0005, \
-                 m_factor = 0.5, beta = 0.5, epsilon = 0.000001, beta1 = 0.9, beta2 = 0.99):
+                 m_factor = 0.9, beta = 0.5, epsilon = 0.000001, beta1 = 0.9, beta2 = 0.99):
         self.n_hidden = n_hidden #number of hidden layers
         self.hl_size = hl_size #size of each hidden layer
         self.batch_size = batch_size 
