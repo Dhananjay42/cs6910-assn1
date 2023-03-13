@@ -40,6 +40,10 @@ class NeuralNetwork:
         self.rmsprop_weight = []
         self.rmsprop_bias = []
 
+        self.adam_weight = []
+        self.adam_bias = []
+        self.adam_iter = 1
+
         self.layer_sizes = [n_input]
         for i in range(n_hidden):
           self.layer_sizes.append(hl_size)
@@ -220,14 +224,60 @@ class NeuralNetwork:
             self.rmsprop_bias[i] = self.beta*self.rmsprop_bias[i] + (1-self.beta)*self.bias_updates[i]**2
         
         for i in range(0, len(self.weights)):
-          self.weights[i] = self.weights[i] - self.lr*(self.weight_updates[i]/(np.sqrt(self.rmsprop_weight[i] + self.epsilon)))
+          self.weights[i] = reg_factor*self.weights[i] - self.lr*(self.weight_updates[i]/(np.sqrt(self.rmsprop_weight[i] + self.epsilon)))
           self.biases[i] = self.biases[i] - self.lr*(self.bias_updates[i]/(np.sqrt(self.rmsprop_bias[i] + self.epsilon)))
       
       elif self.optimizer == 'adam':
-        pass
+        if len(self.weight_history) == 0:
+          self.weight_history = [(1-self.beta1)*grad for grad in self.weight_updates]
+          self.bias_history = [(1-self.beta1)*grad for grad in self.bias_updates]
+          self.adam_weight = [(1-self.beta2)*grad**2 for grad in self.weight_updates]
+          self.adam_bias = [(1-self.beta2)*grad**2 for grad in self.bias_updates]
+        else:
+          for i in range(0, len(self.adam_weight)):
+            self.weight_history[i] = self.beta1*self.weight_history[i] + (1 - self.beta1)*self.weight_updates[i]
+            self.bias_history[i] = self.beta1*self.bias_history[i] + (1 - self.beta1)*self.bias_updates[i]
+            self.adam_weight[i] = self.beta2*self.adam_weight[i] + (1 - self.beta2)*self.weight_updates[i]**2
+            self.adam_bias[i] =  self.beta2*self.adam_bias[i] + (1 - self.beta2)*self.bias_updates[i]**2
+        
+        self.adam_grad_weight = [grad/(1-((self.beta1)**self.adam_iter)) for grad in self.weight_history]
+        self.adam_grad_bias = [grad/(1-((self.beta1)**self.adam_iter)) for grad in self.bias_history]
+
+        self.adam_lr_weight = [update/(1-((self.beta2)**self.adam_iter)) for update in self.adam_weight]
+        self.adam_lr_bias = [update/(1-((self.beta2)**self.adam_iter)) for update in self.adam_bias]
+
+        for i in range(0, len(self.weights)):
+          self.weights[i] = reg_factor*self.weights[i] - self.lr*(self.adam_grad_weight[i]/(np.sqrt(self.adam_lr_weight[i] + self.epsilon)))
+          self.biases[i] = self.biases[i] - self.lr*(self.adam_grad_bias[i]/(np.sqrt(self.adam_lr_bias[i] + self.epsilon)))
+        
+        self.adam_iter = self.adam_iter + 1
       
       elif self.optimizer == 'nadam':
-        pass
+        if len(self.weight_history) == 0:
+          self.weight_history = [(1-self.beta1)*grad for grad in self.weight_updates]
+          self.bias_history = [(1-self.beta1)*grad for grad in self.bias_updates]
+          self.adam_weight = [(1-self.beta2)*grad**2 for grad in self.weight_updates]
+          self.adam_bias = [(1-self.beta2)*grad**2 for grad in self.bias_updates]
+        else:
+          for i in range(0, len(self.adam_weight)):
+            self.weight_history[i] = self.beta1*self.weight_history[i] + (1 - self.beta1)*self.weight_updates[i]
+            self.bias_history[i] = self.beta1*self.bias_history[i] + (1 - self.beta1)*self.bias_updates[i]
+            self.adam_weight[i] = self.beta2*self.adam_weight[i] + (1 - self.beta2)*self.weight_updates[i]**2
+            self.adam_bias[i] =  self.beta2*self.adam_bias[i] + (1 - self.beta2)*self.bias_updates[i]**2
+        
+        self.adam_grad_weight = [grad/(1-((self.beta1)**self.adam_iter)) for grad in self.weight_history]
+        self.adam_grad_bias = [grad/(1-((self.beta1)**self.adam_iter)) for grad in self.bias_history]
+
+        self.adam_lr_weight = [update/(1-((self.beta2)**self.adam_iter)) for update in self.adam_weight]
+        self.adam_lr_bias = [update/(1-((self.beta2)**self.adam_iter)) for update in self.adam_bias]
+
+        factor = (1 - self.beta1)/(1 - (self.beta1**self.adam_iter))
+
+        for i in range(0, len(self.weights)):
+          self.weights[i] = reg_factor*self.weights[i] - self.lr*((self.beta1*self.adam_grad_weight[i] + (factor*self.weight_updates[i]))/(np.sqrt(self.adam_lr_weight[i] + self.epsilon)))
+          self.biases[i] = self.biases[i] - self.lr*((self.beta1*self.adam_grad_bias[i] + (factor*self.bias_updates[i]))/(np.sqrt(self.adam_lr_bias[i] + self.epsilon)))
+        
+        self.adam_iter = self.adam_iter + 1
       
       else:
         print('Error in optimizer name.')
@@ -238,6 +288,9 @@ class NeuralNetwork:
       self.bias_history = []
       self.rmsprop_weight = []
       self.rmsprop_bias = []
+      self.adam_iter = 1
+      self.adam_weight = []
+      self.adam_bias = []
 
     
     def inference(self, x_test, y_test):
@@ -247,7 +300,7 @@ class NeuralNetwork:
 
       for (x,y) in zip(x_test,y_test):
         pred = self.feedforward(x)
-        loss = loss + self.loss_fn(pred, y)
+        #loss = loss + self.loss_fn(pred, y)
         predictions.append(pred)
       
       if self.loss_type == 'cross_entropy':
