@@ -30,7 +30,7 @@ testy_encoded = to_categorical(testy)
 #trainX = trainX
 #trainy_encoded = trainy_encoded[:100]
 losses = []
-print('Training process started.')
+print('Training process started with '+network.optimizer+' optimizer.')
 for i in range(0, n_epochs):
     loss = network.epoch(x_train, trainy_encoded, x_test, testy_encoded, i)
     losses.append(loss)
