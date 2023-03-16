@@ -5,8 +5,8 @@ import copy
 
 class NeuralNetwork:
     def __init__(self, n_hidden = 3, hl_size = 128, batch_size = 16, weight_init = 'Xavier', activation_fn = 'ReLU', \
-                 optimizer = 'sgd', lr = 0.001, n_input = 28*28, n_output = 10, loss_type = 'cross_entropy', lamda = 0.0005, \
-                 m_factor = 0.9, beta = 0.5, epsilon = 0.000001, beta1 = 0.9, beta2 = 0.99):
+                 optimizer = 'sgd', lr = 0.001, n_input = 28*28, n_output = 10, loss_type = 'cross_entropy', lamda = 0.0001, \
+                 m_factor = 0.9, beta = 0.9, epsilon = 0.000001, beta1 = 0.9, beta2 = 0.99):
         self.n_hidden = n_hidden #number of hidden layers
         self.hl_size = hl_size #size of each hidden layer
         self.batch_size = batch_size 
@@ -23,6 +23,7 @@ class NeuralNetwork:
         self.epsilon = epsilon
         self.beta1 = beta1
         self.beta2 = beta2
+        #self.long_wandb = log_wandb
 
         self.weights = []
         self.biases = []
@@ -66,9 +67,9 @@ class NeuralNetwork:
         
         elif self.weight_init == 'random':
           for i in range(0,len(self.layer_sizes)-1):
-            w_arr = np.random.randn(self.layer_sizes[i], self.layer_sizes[i+1])
+            w_arr = 0.01*np.random.randn(self.layer_sizes[i], self.layer_sizes[i+1])
             self.weights.append(w_arr)
-            b_arr = np.random.randn(self.layer_sizes[i+1], 1)
+            b_arr = 0.01*np.random.randn(self.layer_sizes[i+1], 1)
             self.biases.append(b_arr)
 
         else:
@@ -102,14 +103,17 @@ class NeuralNetwork:
       error = 0
       if self.loss_type == 'cross_entropy':
         #labels are one-hot encoded.
-        error = error - np.sum( np.multiply(labels , np.log(predicted)))/len(labels)
+        error = error - np.log(predicted[np.argmax(labels)])
+        error = error[0]
       else:
         #labels are not one-hot encoded.
-        error = error + np.sum(((predicted - labels)**2) / (2 * len(labels)))
+        error = error + ((predicted - labels)**2)/2
+      
       
       for i in range(0, len(self.weights)):
         reg_error = np.sum(self.weights[i]*self.weights[i])
-        error = error + (self.lamda/(2*len(labels)))*reg_error
+        error = error + self.lamda*reg_error
+      
       
       return error
 
@@ -153,13 +157,17 @@ class NeuralNetwork:
         self.weight_gradients.reverse()
         self.bias_gradients.reverse()
     
-    def batchwise_gradient(self, X, y):
+    def batchwise_gradient(self, X, y, look_forward = False):
       self.weight_updates = []
       self.bias_updates = []
       for i in range(0, len(X)):
         y_pred = self.feedforward(X[i])
         self.backprop(y_pred, y[i])
-        #self.loss = self.loss + self.loss_fn(y_pred, y[i].reshape(-1, 1))
+        if look_forward == False:
+          if self.loss_type=='cross_entropy':
+            self.loss = self.loss + self.loss_fn(y_pred, y[i].reshape(-1, 1))
+          else:
+            self.loss = self.loss + self.loss_fn(y_pred, y[i])
         if i==0:
           self.weight_updates = copy.deepcopy(self.weight_gradients)
           self.bias_updates = copy.deepcopy(self.bias_gradients)
@@ -201,7 +209,7 @@ class NeuralNetwork:
             self.weights[i] = self.weights[i] - self.m_factor*self.weight_history[i]
             self.biases[i] = self.biases[i] - self.m_factor*self.bias_history[i]
 
-          self.batchwise_gradient(X, y)
+          self.batchwise_gradient(X, y, look_forward = True)
 
           for i in range(0, len(self.weight_history)):
             self.weight_history[i] = self.m_factor*self.weight_history[i] + self.lr*self.weight_updates[i]
@@ -293,28 +301,50 @@ class NeuralNetwork:
       self.adam_bias = []
 
     
-    def inference(self, x_test, y_test):
-      predictions = []
-      loss = 0
-      y_label = copy.deepcopy(y_test)
+    def inference(self, x_test, y_test, loss_flag = True):
+      if loss_flag:
+        predictions = []
+        loss = 0
+        y_label = copy.deepcopy(y_test)
 
-      for (x,y) in zip(x_test,y_test):
-        pred = self.feedforward(x)
-        #loss = loss + self.loss_fn(pred, y)
-        predictions.append(pred)
-      
-      if self.loss_type == 'cross_entropy':
-        y_pred = [np.argmax(predictions[i]) for i in range(0,len(predictions))]
-        y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
-      
-      else:
-        y_pred = np.round(y_pred)
-        y_pred[y_pred<0] = 0
-        y_pred[y_pred>=self.n_output-1] = self.n_output - 1
-      
-      acc = accuracy_score(y_label, y_pred)
+        for (x,y) in zip(x_test,y_test):
+          pred = self.feedforward(x)
+          loss = loss + self.loss_fn(pred, y)
+          predictions.append(pred)
         
-      return loss, acc
+        if self.loss_type == 'cross_entropy':
+          y_pred = [np.argmax(predictions[i]) for i in range(0,len(predictions))]
+          y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
+        
+        else:
+          y_pred = np.round(y_pred)
+          y_pred[y_pred<0] = 0
+          y_pred[y_pred>=self.n_output-1] = self.n_output - 1
+        
+        acc = accuracy_score(y_label, y_pred)
+
+        return loss, acc
+
+      else:
+        predictions = []
+        y_label = copy.deepcopy(y_test)
+
+        for (x,y) in zip(x_test,y_test):
+          pred = self.feedforward(x)
+          predictions.append(pred)
+        
+        if self.loss_type == 'cross_entropy':
+          y_pred = [np.argmax(predictions[i]) for i in range(0,len(predictions))]
+          y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
+        
+        else:
+          y_pred = np.round(y_pred)
+          y_pred[y_pred<0] = 0
+          y_pred[y_pred>=self.n_output-1] = self.n_output - 1
+        
+        acc = accuracy_score(y_label, y_pred)
+
+        return acc
     
     def epoch(self, x_train, y_train, x_test, y_test, index):
       for i in range(0,len(x_train),self.batch_size):
@@ -329,7 +359,9 @@ class NeuralNetwork:
         
   
       test_loss, test_acc = self.inference(x_test, y_test)
-      loss_ret = self.loss
-      print(f'Epoch {index+1} completed. Training Loss is {self.loss}. The test loss is {test_loss} and the test accuracy is {test_acc}.')
+      train_acc = self.inference(x_train, y_train, loss_flag = False)
+      train_loss = self.loss/len(x_train)
+      test_loss = test_loss/len(x_test)
+      #print(f'Epoch {index+1} completed. Training Loss is {train_loss}, training accuracy is {train_acc}. The test loss is {test_loss} and the test accuracy is {test_acc}.')
       self.reset()
-      return loss_ret
+      return train_loss,train_acc,test_acc,test_loss
