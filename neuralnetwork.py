@@ -355,7 +355,7 @@ class NeuralNetwork:
           xbatch = x_train[i:]
           ybatch = y_train[i:]
 
-        self.step(xbatch, ybatch)
+        self.step(xbatch, ybatch)                                                     
         
   
       test_loss, test_acc = self.inference(x_test, y_test)
