@@ -98,8 +98,7 @@ def main(argv):
     train_loss,train_acc,test_acc,test_loss = network.epoch(x_train, y_train, x_val, y_val, i)
   
   test_accuracy = network.inference(x_test, y_test, loss_flag = False)
-  print(f'The test accuracy is {test_accuracy.}')
-
+  print(f'The test accuracy is {test_accuracy}.')
         
 if __name__ == "__main__":
    main(sys.argv[1:])
