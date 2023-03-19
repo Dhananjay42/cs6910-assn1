@@ -1,34 +1,23 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from keras.datasets import fashion_mnist
+from keras.datasets import fashion_mnist, mnist
 from keras.utils import to_categorical
 from neuralnetwork import NeuralNetwork
+from sklearn.model_selection import train_test_split
 import sys
 
 def main(argv):
   opts = []
   args = []
 
+  params = {}
+
   project_name = ''
   entity_name = ''
-  dataset = "fashion_mnist"
-  epochs = 10
-  batch_size = 128
-  loss_type = 'cross_entropy'
-  optimizer = 'adam'
-  lr = 0.0001
-  momentum = 0.9
-  beta = 0.9
-  beta1 = 0.9
-  beta2 = 0.99
-  lamda = 0
-  epsilon = 0.000001
-  weight_init = 'Xavier'
-  n_hl = 5
-  hl_neurons = 128
-  activation = 'ReLU'
-
+  dataset = 'fashion_mnist'
+  n_epochs = 10
+  
   for i in range(0, len(argv)-1):
     opts.append(argv[i])
     args.append(argv[i+1])
@@ -43,61 +32,70 @@ def main(argv):
     elif opt == '-e' or opt == '--epochs':
       n_epochs = arg
     elif opt == '-b' or opt == '--batch_size':
-      batch_size = arg
+      params['batch_size'] = arg
     elif opt == '-l' or opt == '--loss':
-      loss_type = arg
+      params['loss_type'] = arg
     elif opt == '-o' or opt == '--optimizer':
-      optimizer = arg
+      params['optimizer'] = arg
     elif opt == '-lr' or opt == '--learning_rate':
-      lr = arg
+      params['lr'] = arg
     elif opt == '-m' or opt == '--momentum':
-      momentum = arg
+      params['m_factor'] = arg
     elif opt == '-beta' or opt == '--beta':
-      beta = arg
+      params['beta'] = arg
     elif opt == '-beta1' or opt == '--beta1':
-      beta1 = arg
+      params['beta1'] = arg
     elif opt == '-beta2' or opt == '--beta2':
-      beta2 = arg
+      params['beta2'] = arg
     elif opt == '-w_d' or opt == '--weight_decay':
-      lamda = arg
+      params['lamda'] = arg
     elif opt == '-w_i' or opt == '--weight_init':
-      weight_init = arg
+      params['weight_init'] = arg
     elif opt == '-nhl' or opt == '--num_layers':
-      n_hl = arg
+      params['n_hidden'] = arg
     elif opt == '-sz' or opt == '--hidden_size':
-      hl_neurons = arg
+      params['hl_size'] = arg
     elif opt == '-a' or opt == '--activation':
-      activation = arg
+      params['activation_fn'] = arg
+    else:
+      print('Follow the format to run the script.')
+      sys.exit()
 
-network = NeuralNetwork(optimizer = 'adam')
-n_epochs = 5    
+  network = NeuralNetwork(**params)
 
+  if dataset == 'fashion_mnist':
+    (trainX, trainy), (testX, testy) = fashion_mnist.load_data()
+  
+  elif dataset == 'mnist':
+    (trainX, trainy), (testX, testy) = mnist.load_data()
+  
+  else:
+    print('Wrong Dataset.')
+    sys.exit()
+  
+  trainX = trainX/255
+  testX = testX/255
 
-(trainX, trainy), (testX, testy) = fashion_mnist.load_data()
+  trainX, valX, trainy, valy = train_test_split(trainX, trainy, test_size=0.1, random_state=40)
 
-trainX = trainX/255
-testX = testX/255
+  x_train = []
+  x_test = []
+  x_val = []
+  for i in range(0, len(trainX)):
+    x_train.append(trainX[i,:,:].flatten())
+  for i in range(0, len(testX)):
+    x_test.append(testX[i,:,:].flatten())
+  for i in range(0, len(valX)):
+    x_val.append(valX[i,:,:].flatten())
 
-trainX = trainX
-trainy = trainy
+  y_train = to_categorical(trainy)
+  y_test = to_categorical(testy)
+  y_val = to_categorical(valy)
 
-# x_train = []
-# x_test = []
-# for i in range(0, len(trainX)):
-#   x_train.append(trainX[i,:,:].flatten())
-# for i in range(0, len(testX)):
-#   x_test.append(testX[i,:,:].flatten())
-
-
-# trainy_encoded = to_categorical(trainy)
-# testy_encoded = to_categorical(testy)
-# #trainX = trainX
-# #trainy_encoded = trainy_encoded[:100]
-# losses = []
-# print('Training process started with '+network.optimizer+' optimizer.')
-# for i in range(0, n_epochs):
-#     loss = network.epoch(x_train, trainy_encoded, x_test, testy_encoded, i)
-#     losses.append(loss)
-
+  print('Training process started with '+network.optimizer+' optimizer.')
+  
+  for i in range(0, n_epochs):
+    train_loss,train_acc,test_acc,test_loss = network.epoch(x_train, y_train, x_val, y_val, i)
+        
 if __name__ == "__main__":
    main(sys.argv[1:])
