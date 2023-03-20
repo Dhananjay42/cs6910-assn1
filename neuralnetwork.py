@@ -23,7 +23,6 @@ class NeuralNetwork:
         self.epsilon = epsilon
         self.beta1 = beta1
         self.beta2 = beta2
-        #self.long_wandb = log_wandb
 
         self.weights = []
         self.biases = []
@@ -49,14 +48,10 @@ class NeuralNetwork:
         for i in range(n_hidden):
           self.layer_sizes.append(hl_size)
         self.layer_sizes.append(n_output)
-
-        # self.updates = []
-        
-        # self.activated_layers = []
-        # self.batch_count = 0
         self.init_weights()
 
     def init_weights(self):
+        #initializes the weights of the neural network according to the scheme.
         if self.weight_init == 'Xavier':
           for i in range(0,len(self.layer_sizes)-1):
             a = np.sqrt(6/(self.layer_sizes[i] + self.layer_sizes[i+1]))
@@ -77,6 +72,7 @@ class NeuralNetwork:
             quit()
     
     def activation(self, a):
+        #returns the post-activation layer based on the activation function
         if self.activation_fn == 'sigmoid':
           return (1.0/(1.0+np.exp(-a)))
         elif self.activation_fn == 'tanh':
@@ -87,6 +83,7 @@ class NeuralNetwork:
           return np.maximum(0,a)
     
     def calculate_grad(self, a):
+        #returns the derivative of the post-activation layer wrt the pre-activation layer. 
         if self.activation_fn == 'sigmoid':
             return self.activation(a)*(1-self.activation(a))
         elif self.activation_fn == 'tanh':
@@ -97,9 +94,11 @@ class NeuralNetwork:
             return 1*(a > 0)
     
     def softmax_grad(self, a):
+      #returns the derivative of the softmax function
       return self.softmax(a)*(1-self.softmax(a))
     
     def loss_fn(self, predicted, labels):
+      #returns loss, given a predicted class and an actual class label 
       error = 0
       if self.loss_type == 'cross_entropy':
         #labels are one-hot encoded.
@@ -117,11 +116,13 @@ class NeuralNetwork:
       return error
 
     def softmax(self, output):
+        #softmax activation is used at the last layer in a classification problem
         out = [np.exp(x) for x in output]
         out = out/np.sum((out))
         return out
       
     def feedforward(self, x):
+        #neural network takes the 784 dimensional flattened image as an input and returns a 10 x 1 probabillity vector as output.
         self.activated_layers = []
         output = copy.deepcopy(x)
         
@@ -139,6 +140,7 @@ class NeuralNetwork:
         return output
     
     def backprop(self, y_pred, y_true):
+        #backpropagates the losses through the neural network, assigning it to self.weight_gradients and self.bias_gradients
         self.weight_gradients = []
         self.bias_gradients = []
 
@@ -160,6 +162,8 @@ class NeuralNetwork:
         self.bias_gradients.reverse()
     
     def batchwise_gradient(self, X, y, look_forward = False):
+      #given a set of X and y, it calculates the cumulative gradient by adding up the individual backpropagated gradients. 
+      #this is needed for the batch-variants of the various algorithms. 
       self.weight_updates = []
       self.bias_updates = []
       for i in range(0, len(X)):
@@ -179,6 +183,7 @@ class NeuralNetwork:
             self.bias_updates[i] = self.bias_updates[i] + self.bias_gradients[i]
       
     def step(self, X, y):
+      #given a particular set (X, y), this optimizes the weights based on the optimization routine
       self.batchwise_gradient(X, y)
       reg_factor = (1 - ((self.lr*self.lamda)/self.batch_size))
       if self.optimizer == 'sgd':
@@ -293,6 +298,7 @@ class NeuralNetwork:
         print('Error in optimizer name.')
       
     def reset(self):
+      #to be called after every epoch, sets these quantities back to their original state.
       self.loss = 0
       self.weight_history = []
       self.bias_history = []
@@ -304,6 +310,7 @@ class NeuralNetwork:
 
     
     def inference(self, x_test, y_test, loss_flag = True):
+      #given x_test and y_test, calculates the accuracy and also the loss (optionally)
       if loss_flag:
         predictions = []
         loss = 0
@@ -337,6 +344,8 @@ class NeuralNetwork:
         return acc
     
     def epoch(self, x_train, y_train, x_test, y_test, index):
+      #given train data, it organizes the train data into batches and performs the n number of steps, which constitutes an epoch.
+      #once this is done, it returns the metrics on the validation data - helping keep track of the generalizability of the model. 
       for i in range(0,len(x_train),self.batch_size):
         if i+self.batch_size < len(x_train):
           xbatch = x_train[i:i+self.batch_size]
