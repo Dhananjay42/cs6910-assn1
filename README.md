@@ -7,6 +7,10 @@ The WandB report corresponding to this code can be found here: https://api.wandb
 
 ## Instructions to use:
 ### Training the Neural Network.
+0. Install the requirements from the 'requirements.txt' file.
+```
+pip install -r requirements.txt
+```
 1. To train the Neural Network, use the 'train.py' script. Here is the format of how you should run it:
 
 ```
