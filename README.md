@@ -3,9 +3,10 @@
 By Dhananjay Balakrishnan, ME19B012.
 Submitted as part of the course CS6910, taught by Professor Mitesh Khapra, Jan-May 2023 semester.
 
-The WandB report can be found here: https://api.wandb.ai/links/clroymustang/19pi47oa.
+The WandB report corresponding to this code can be found here: https://api.wandb.ai/links/clroymustang/19pi47oa.
 
-Instructions to use:
+## Instructions to use:
+### Training the Neural Network.
 1. To train the Neural Network, use the 'train.py' script. Here is the format of how you should run it:
 
 ```
@@ -40,6 +41,7 @@ The optional arguments are:
 
 2. On completion, the model will be stored in the same directory as 'model.pkl'. You can save the model to recreate the results later. 
 
+### Assignment Specific Functions and WandB sweep
 The WandB hyperparameter sweep, and all required comparisons for the various questions of the problem statement have been performed in the Jupyter Notebook titled 'assignment1_nb.ipynb'.
 
 
