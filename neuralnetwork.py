@@ -4,8 +4,8 @@ import cv2
 import copy 
 
 class NeuralNetwork:
-    def __init__(self, n_hidden = 3, hl_size = 128, batch_size = 16, weight_init = 'Xavier', activation_fn = 'ReLU', \
-                 optimizer = 'sgd', lr = 0.001, n_input = 28*28, n_output = 10, loss_type = 'cross_entropy', lamda = 0.0001, \
+    def __init__(self, n_hidden = 3, hl_size = 128, batch_size = 32, weight_init = 'Xavier', activation_fn = 'tanh', \
+                 optimizer = 'nadam', lr = 0.001, n_input = 28*28, n_output = 10, loss_type = 'cross_entropy', lamda = 0.0005, \
                  m_factor = 0.9, beta = 0.9, epsilon = 0.000001, beta1 = 0.9, beta2 = 0.99):
         self.n_hidden = n_hidden #number of hidden layers
         self.hl_size = hl_size #size of each hidden layer
@@ -106,8 +106,7 @@ class NeuralNetwork:
         error = error - np.log(predicted[np.argmax(labels)])
         error = error[0]
       else:
-        #labels are not one-hot encoded.
-        error = error + ((predicted - labels)**2)/2
+        error = error + 0.5*np.mean((predicted - labels)**2)
       
       
       for i in range(0, len(self.weights)):
@@ -143,7 +142,10 @@ class NeuralNetwork:
         self.weight_gradients = []
         self.bias_gradients = []
 
-        grad_a = y_pred - y_true.reshape(-1, 1) #y_pred and y_true are one-hot encoded when its cross-entropy and just scalars when its MSE. The expression does not change.
+        if self.loss_fn == 'cross_entropy':
+          grad_a = y_pred - y_true.reshape(-1, 1) 
+        else:
+          grad_a = np.multiply(y_pred - y_true.reshape(-1, 1), 1 - y_pred**2)
         #dimensions: (n_out x 1)
         for i in range(1,self.n_hidden + 2):
           grad_w = np.dot(self.h_list[-i].reshape(-1,1), np.transpose(grad_a))
@@ -312,15 +314,9 @@ class NeuralNetwork:
           loss = loss + self.loss_fn(pred, y)
           predictions.append(pred)
         
-        if self.loss_type == 'cross_entropy':
-          y_pred = [np.argmax(predictions[i]) for i in range(0,len(predictions))]
-          y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
-        
-        else:
-          y_pred = np.round(y_pred)
-          y_pred[y_pred<0] = 0
-          y_pred[y_pred>=self.n_output-1] = self.n_output - 1
-        
+        y_pred = [np.argmax(predictions[i]) for i in range(0,len(predictions))]
+        y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
+              
         acc = accuracy_score(y_label, y_pred)
 
         return loss, acc
@@ -333,14 +329,8 @@ class NeuralNetwork:
           pred = self.feedforward(x)
           predictions.append(pred)
         
-        if self.loss_type == 'cross_entropy':
-          y_pred = [np.argmax(predictions[i]) for i in range(0,len(predictions))]
-          y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
-        
-        else:
-          y_pred = np.round(y_pred)
-          y_pred[y_pred<0] = 0
-          y_pred[y_pred>=self.n_output-1] = self.n_output - 1
+        y_pred = [np.argmax(predictions[i]) for i in range(0,len(predictions))]
+        y_label = [np.argmax(y_test[i]) for i in range(0,len(y_test))]
         
         acc = accuracy_score(y_label, y_pred)
 
@@ -355,13 +345,13 @@ class NeuralNetwork:
           xbatch = x_train[i:]
           ybatch = y_train[i:]
 
-        self.step(xbatch, ybatch)                                                     
+        self.step(xbatch, ybatch)
         
   
       test_loss, test_acc = self.inference(x_test, y_test)
       train_acc = self.inference(x_train, y_train, loss_flag = False)
       train_loss = self.loss/len(x_train)
       test_loss = test_loss/len(x_test)
-      #print(f'Epoch {index+1} completed. Training Loss is {train_loss}, training accuracy is {train_acc}. The test loss is {test_loss} and the test accuracy is {test_acc}.')
+      print(f'Epoch {index+1} completed. Training Loss is {train_loss}, training accuracy is {train_acc}. The test loss is {test_loss} and the test accuracy is {test_acc}.')
       self.reset()
       return train_loss,train_acc,test_acc,test_loss
