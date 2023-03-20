@@ -46,7 +46,8 @@ The optional arguments are:
 
 2. On completion, the model will be stored in the same directory as 'model.pkl'. You can save the model to recreate the results later. 
 
-### Assignment Specific Functions and WandB sweep
+## Assignment Specific Functions and WandB sweep
 The WandB hyperparameter sweep, and all required comparisons for the various questions of the problem statement have been performed in the Jupyter Notebook titled 'assignment1_nb.ipynb'.
 
-
+##Best-Performing Models
+The models that performed the best on the Fashion-MNIST dataset can be found as pickled objects in the 'best_models' folder.
