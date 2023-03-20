@@ -49,5 +49,5 @@ The optional arguments are:
 ## Assignment Specific Functions and WandB sweep
 The WandB hyperparameter sweep, and all required comparisons for the various questions of the problem statement have been performed in the Jupyter Notebook titled 'assignment1_nb.ipynb'.
 
-##Best-Performing Models
+## Best-Performing Models
 The models that performed the best on the Fashion-MNIST dataset can be found as pickled objects in the 'best_models' folder.
