@@ -38,6 +38,7 @@ The optional arguments are:
 |-nhl, --num_layers|Number of Hidden Layers|3|
 |-sz, --hidden_size|Hidden Layer Size|128|
 |-a, --activation|Activation Function. Choose one from ['sigmoid', 'tanh', 'identity', 'ReLU'].|'tanh'|
+|-rn, --run_name|Name of WandB run.|'model_run'|
 
 2. On completion, the model will be stored in the same directory as 'model.pkl'. You can save the model to recreate the results later. 
 
